@@ -93,6 +93,11 @@ namespace OpenSim.Region.ScriptEngine.Interfaces
         bool ShuttingDown { get; set; }
 
         /// <summary>
+        /// When stopping the script: should it remain stopped permanently (i.e., save !Running in its state)?
+        /// </summary>
+        bool StayStopped { get; set; }
+
+        /// <summary>
         /// Script state
         /// </summary>
         string State { get; set; }
@@ -109,14 +114,9 @@ namespace OpenSim.Region.ScriptEngine.Interfaces
         DateTime TimeStarted { get; }
 
         /// <summary>
-        /// Tick the last measurement period was started.
+        /// Collects information about how long the script was executed.
         /// </summary>
-        long MeasurementPeriodTickStart { get; }
-
-        /// <summary>
-        /// Ticks spent executing in the last measurement period.
-        /// </summary>
-        long MeasurementPeriodExecutionTime { get; }
+        MetricsCollectorTime ExecutionTime { get; }
 
         /// <summary>
         /// Scene part in which this script instance is contained.

@@ -420,6 +420,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             return m_OSSL_Functions.osGetScriptEngineName();
         }
 
+        public LSL_Integer osCheckODE()
+        {
+            return m_OSSL_Functions.osCheckODE();
+        }
+
         public string osGetPhysicsEngineType()
         {
             return m_OSSL_Functions.osGetPhysicsEngineType();
@@ -503,6 +508,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public string osGetGridCustom(string key)
         {
             return m_OSSL_Functions.osGetGridCustom(key);
+        }
+
+        public string osGetAvatarHomeURI(string uuid)
+        {
+            return m_OSSL_Functions.osGetAvatarHomeURI(uuid);
         }
 
         public LSL_String osFormatString(string str, LSL_List strings)
@@ -863,6 +873,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
                     Save();
                 }
             }
+        }
+
+        public string osGetGender(LSL_Key rawAvatarId)
+        {
+            return m_OSSL_Functions.osGetGender(rawAvatarId);
         }
 
         public key osGetMapTexture()

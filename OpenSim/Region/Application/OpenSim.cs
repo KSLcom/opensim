@@ -385,7 +385,7 @@ namespace OpenSim
 
             m_console.Commands.AddCommand("Regions", false, "restart",
                                           "restart",
-                                          "Restart all sims in this instance", 
+                                          "Restart the currently selected region(s) in this instance", 
                                           RunCommand);
 
             m_console.Commands.AddCommand("General", false, "command-script",
@@ -732,6 +732,8 @@ namespace OpenSim
 
             if (changed)
 	            m_estateDataService.StoreEstateSettings(regInfo.EstateSettings);
+        
+            scene.Start();
         }
 
         /// <summary>

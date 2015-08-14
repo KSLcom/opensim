@@ -486,6 +486,32 @@
     ;; the region ports use UDP.
     ; http_listener_port = 9000
 
+    ; By default, OpenSimulator does not allow scripts to make HTTP calls to addresses on the simulator's LAN.
+    ; See the OutboundDisallowForUserScripts parameter in OpenSimDefaults.ini for more information on this filter.
+    ; If you need to allow scripts to make some LAN calls use the OutboundDisallowForUserScriptsExcept parameter below.
+    ; We recommend that you do not override OutboundDisallowForUserScripts directly unless you are very sure about what you're doing.
+    ;
+    ; You can whitelist individual endpoints by IP or FQDN, e.g.
+    ;
+    ; OutboundDisallowForUserScriptsExcept = 192.168.1.3:8003
+    ; 
+    ; You can specify multiple addresses by separating them with a bar.  For example,
+    ;
+    ; OutboundDisallowForUserScriptsExcept = 192.168.1.3:8003|myinternalserver:8000
+    ; 
+    ; If an address if given without a port number then port 80 is assumed
+    ;
+    ; You can also specify a network range in CIDR notation to whitelist, e.g.
+    ;
+    ; OutboundDisallowForUserScriptsExcept = 192.168.1.0/24
+    ;
+    ; to whitelist all ports on addresses 192.168.1.0 to 192.168.1.255
+    ; To specify an individual IP address use the /32 netmask
+    ;
+    ; OutboundDisallowForUserScriptsExcept = 192.168.1.2/32
+    ;
+    ; See http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing#CIDR_notation for more information on CIDR notation
+
     ;# {ExternalHostNameForLSL} {} {Hostname to use for HTTP-IN URLs. This should be reachable from the internet.} {}
     ;; Hostname to use in llRequestURL/llRequestSecureURL
     ;; if not defined - default machine name is being used
@@ -763,7 +789,7 @@
     ;# {enable_materials} {} {Enable Materials support?} {true false} true
     ;; This enables the use of Materials.
     ; enable_materials = true
-
+    ; MaxMaterialsPerTransaction = 50
 
 [DataSnapshot]
     ;# {index_sims} {} {Enable data snapshotting (search)?} {true false} false
@@ -893,53 +919,7 @@
     ;; Compile debug info (line numbers) into the script assemblies
     ; CompileWithDebugInformation = true
 
-    ;; Allow the user of mod* functions.  This allows a script to pass messages
-    ;; to a region module via the modSendCommand() function
-    ;; Default is false
-    ; AllowMODFunctions = false
-
-    ;# {AllowOSFunctions} {Enabled:true} {Allow OSFunctions? (DANGEROUS!)} {true false} false
-    ;; Allow the use of os* functions (some are dangerous)
-    ; AllowOSFunctions = false
-
-    ;# {AllowLightShareFunctions} {Enabled:false [LightShare]enable_windlight:true} {Allow LightShare functions?} {true false} false
-    ; Allow the use of LightShare functions.
-    ; The setting enable_windlight = true must also be enabled in the [LightShare] section.
-    ; AllowLightShareFunctions = false
-
-    ;# {OSFunctionThreatLevel} {Enabled:true AllowOSFunctions:true} {OSFunction threat level? (DANGEROUS!)} {None VeryLow Low Moderate High VeryHigh Severe} VeryLow
-    ;; Threat level to allow, one of None, VeryLow, Low, Moderate, High, VeryHigh, Severe
-    ;; See http://opensimulator.org/wiki/Threat_level for more information on these levels.
-    ;; We do not recommend that use set a general level above Low unless you have a high level of trust
-    ;; in all the users that can run scripts in your simulator.  It is safer to explicitly
-    ;; allow certain types of user to run higher threat level OSSL functions, as detailed later on.
-    OSFunctionThreatLevel = VeryLow
-
-    ; OS Functions enable/disable
-    ; For each function, you can add one line, as shown
-    ; The default for all functions allows them if below threat level
-
-    ; true allows the use of the function unconditionally
-    ; Allow_osSetRegionWaterHeight = true
-    
-    ; false disables the function completely
-    ; Allow_osSetRegionWaterHeight = false
-    
-    ; Comma separated list of UUIDS allows the function for that list of UUIDS
-    ; Allow_osSetRegionWaterHeight = 888760cb-a3cf-43ac-8ea4-8732fd3ee2bb
-    
-    ; Comma separated list of owner classes that allow the function for a particular class of owners. Choices are
-    ; - PARCEL_GROUP_MEMBER:  allow if the object group is the same group as the parcel
-    ; - PARCEL_OWNER:         allow if the object owner is the parcel owner
-    ; - ESTATE_MANAGER:       allow if the object owner is an estate manager
-    ; - ESTATE_OWNER:         allow if the object owner is the estate owner
-    ; Allow_osSetRegionWaterHeight = 888760cb-a3cf-43ac-8ea4-8732fd3ee2bb, PARCEL_OWNER, ESTATE_OWNER>, ...
-
-    ; You can also use script creators as the uuid
-    ; Creators_osSetRegionWaterHeight = <uuid>, ...
-
-    ; If both Allow_ and Creators_ are given, effective permissions
-    ; are the union of the two.
+    ; ==== Settings for MOD and OSSL functions have been moved to the [OSSL] section
 
     ;# {EventLimit} {} {Amount of time a script can spend in an event handler} {} 30
     ;; Time a script can spend in an event handler before it is interrupted
@@ -979,6 +959,12 @@
     ;; Path to script engine assemblies
     ;; Default is ./bin/ScriptEngines
     ; ScriptEnginesPath = "ScriptEngines"
+
+[OSSL]
+    ;# {Include-osslEnable} {} {Include file for enabling and permissions for OSSL functions} {}
+    ;; Optionally include file to enable OSSL functions and set permissions on who can use which.
+    ;; If this INI file is not included, the OSSL functions are disabled.
+    Include-osslEnable = "config-include/osslEnable.ini"
 
 
 [MRM]
@@ -1062,7 +1048,7 @@
     ;; URI for the groups services of this grid
     ;; e.g. http://yourxmlrpcserver.com/xmlrpc.php for Flotsam XmlRpc
     ;; or http://mygridserver.com:82/Grid/ for SimianGrid
-    ;; or http:://${Const|BaseURL}:${Const|PrivatePort} for robust, V2
+    ;; or ${Const|BaseURL}:${Const|PrivatePort} for robust, V2
     ;; Leave it commented for standalones, V2
     ; GroupsServerURI = ""
 
@@ -1137,6 +1123,15 @@
   ;; Sets the URL for the baked texture ROBUST service.
   ;; Disabled when unset.
   ;; URL = ${Const|BaseURL}:${Const|PrivatePort}
+
+;;
+;; Optional module to highlight God names in the viewer.
+;; Uncomment and costumize appropriately if you want this behavior.
+;;
+;[GodNames]
+;	Enabled = false
+;	FullNames = "Test User, Foo Bar"
+;	Surnames = "Kryztlsk"
 
 [Architecture]
     ;# {Include-Architecture} {} {Choose one of the following architectures} {config-include/Standalone.ini config-include/StandaloneHypergrid.ini config-include/Grid.ini config-include/GridHypergrid.ini config-include/SimianGrid.ini config-include/HyperSimianGrid.ini} config-include/Standalone.ini

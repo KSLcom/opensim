@@ -2392,7 +2392,7 @@ namespace OpenSim.Region.Framework.Scenes
                     CollidingMessage = CreateColliderArgs(this, colliders);
 
                     if (CollidingMessage.Colliders.Count > 0)
-                        notify(LocalId, CollidingMessage);
+                        DoNotify(notify, LocalId, CollidingMessage);
 
                     if (PassCollisions)
                         sendToRoot = true;
@@ -2406,7 +2406,7 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     CollidingMessage = CreateColliderArgs(ParentGroup.RootPart, colliders);
                     if (CollidingMessage.Colliders.Count > 0)
-                        notify(ParentGroup.RootPart.LocalId, CollidingMessage);
+                        DoNotify(notify, ParentGroup.RootPart.LocalId, CollidingMessage);
                 }
             }
         }
@@ -2421,7 +2421,33 @@ namespace OpenSim.Region.Framework.Scenes
                 colliding.Add(CreateDetObjectForGround());
                 LandCollidingMessage.Colliders = colliding;
 
-                notify(LocalId, LandCollidingMessage);
+                DoNotify(notify, LocalId, LandCollidingMessage);
+            }
+        }
+
+        private void DoNotify(ScriptCollidingNotification notify, uint id, ColliderArgs collargs)
+        {
+            if (m_parentGroup != null && ParentGroup.Scene != null && ParentGroup.Scene.ShouldUseFireAndForgetForCollisions)
+            {
+                // For those learning C#, FireAndForget takes a function, an object to pass
+                //    to that function and an ID string. The "oo => {}" construct is a lambda expression
+                //    for a function with one arguement ('oo'). The 'new Object[] {}" construct creates an Object
+                //    that is an object array and initializes it with three items (the parameters
+                //    being passed). The parameters passed are the function to call ('notify') and
+                //    its two arguements. Finally, once in the function (called later by the FireAndForget
+                //    thread scheduler), the passed object is cast to an object array and then each
+                //    of its items (aoo[0] to aoo[2]) are individually cast to what they are and
+                //    then used in a call of the passed ScriptCollidingNotification function.
+                Util.FireAndForget(oo =>
+                {
+                    Object[] aoo = (Object[])oo;
+                    ((ScriptCollidingNotification)aoo[0])((uint)aoo[1], (ColliderArgs)aoo[2]);
+
+                }, new Object[] { notify, id, collargs }, "SOP.Collision");
+            }
+            else
+            {
+                notify(id, collargs);
             }
         }
 
@@ -4909,25 +4935,15 @@ namespace OpenSim.Region.Framework.Scenes
 
                     Quaternion currRot = GetWorldRotation();
                     currRot.Normalize();
-                    
-                    // difference between current orientation and desired orientation
-                    Quaternion dR = new Quaternion(currRot.X, currRot.Y, currRot.Z, -currRot.W) * APIDTarget;
 
-                    // find axis of rotation to rotate to desired orientation
+                    // difference between current orientation and desired orientation
+                    Quaternion dR = currRot / APIDTarget;
+
+                    // find axis and angle of rotation to rotate to desired orientation
                     Vector3 axis = Vector3.UnitX;
-                    float s = (float)Math.Sqrt(1.0f - dR.W * dR.W);
-                    if (s >= 0.001)
-                    {
-                        float invS = 1.0f / s;
-                        if (dR.W < 0) invS = -invS;
-                        axis = new Vector3(dR.X * invS, dR.Y * invS, dR.Z * invS) * currRot;
-                        axis.Normalize();
-                    }
-                    
-                    // angle between current and desired orientation
-                    float angle = 2.0f * (float)Math.Acos(dR.W);
-                    if (angle > Math.PI)
-                        angle = 2.0f * (float)Math.PI - angle;
+                    float angle;
+                    dR.GetAxisAngle(out axis, out angle);
+                    axis = axis * currRot;
 
                     // clamp strength to avoid overshoot
                     float strength = 1.0f / APIDStrength;

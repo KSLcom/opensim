@@ -85,6 +85,7 @@
     PresenceServiceConnector = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:PresenceServiceConnector"
     UserAccountServiceConnector = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:UserAccountServiceConnector"
     GridUserServiceConnector = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:GridUserServiceConnector"
+    AgentPreferencesServiceConnector = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:AgentPreferencesServiceConnector"
     FriendsServiceConnector = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:FriendsServiceConnector"
     MapAddServiceConnector = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:MapAddServiceConnector"
     MapGetServiceConnector = "${Const|PublicPort}/OpenSim.Server.Handlers.dll:MapGetServiceConnector"
@@ -153,6 +154,13 @@
     ;; Hypergrid services are not affected by this; they are publicly available 
     ;; by design.
 
+    ;; By default, scripts are not allowed to call private services via llHttpRequest()
+    ;; Such calls are detected by the X-SecondLife-Shared HTTP header
+    ;; If you allow such calls you must be sure that they are restricted to very trusted scripters
+    ;; (remember scripts can also be in visiting avatar attachments).
+    ;; This can be overriden in individual private service sections if necessary
+    AllowllHTTPRequestIn = false
+
     ; * The following are for the remote console
     ; * They have no effect for the local or basic console types
     ; * Leave commented to diable logins to the console
@@ -197,7 +205,31 @@
 ; * in turn, reads the asset loader and database connection information
 ; *
 [AssetService]
+
+    ;; Choose an asset service (Only one option should be enabled)
     LocalServiceModule = "OpenSim.Services.AssetService.dll:AssetService"
+    ;LocalServiceModule = "OpenSim.Services.FSAssetService.dll:FSAssetConnector"
+    
+    ;; FSAsset Directories. Base directory, where final asset files are stored and Spool directory for temp files
+    ;; These directories must be on the same physical filesystem
+    ;BaseDirectory = "./fsassets/data"
+    ;SpoolDirectory = "./fsassets/tmp"
+    
+    ;; Original service can be checked if FSAssets can not find an asset
+    ;FallbackService = "OpenSim.Services.AssetService.dll:AssetService";
+    
+    ;; How many days since last updating the access time before its updated again by FSAssets when accessing an asset
+    ;; Reduces DB calls if asset is requested often. Default value 0 will always update access time
+    ;DaysBetweenAccessTimeUpdates = 30
+    
+    ;; FSAssets Custom Database Config (Leave blank to use grids default database configuration)
+    ;StorageProvider = ""
+    ;ConnectionString = ""
+    ;Realm = "fsassets"
+    
+    ;; The following are common to both the default asset service and FSAsset service
+
+    ;; Common asset service options
     DefaultAssetLoader = "OpenSim.Framework.AssetLoader.Filesystem.dll"
     AssetLoaderArgs = "./assets/AssetSets.xml"
 
@@ -365,6 +397,11 @@
 [GridUserService]
     ; for the server connector
     LocalServiceModule = "OpenSim.Services.UserAccountService.dll:GridUserService"
+
+
+[AgentPreferencesService]
+    ; for the server connector
+    LocalServiceModule = "OpenSim.Services.UserAccountService.dll:AgentPreferencesService"
 
 
 [PresenceService]
@@ -649,6 +686,12 @@
     UserAccountsService = "OpenSim.Services.UserAccountService.dll:UserAccountService"
     AvatarService = "OpenSim.Services.AvatarService.dll:AvatarService"
 
+    ; HGInventoryService is a public-facing inventory service that allows users to 
+    ; interact with their suitcase folder when on a foreign grid.  This reuses the general inventory service connector.
+    ; Hence, if the user has set up authentication in [Network] to protect their private services
+    ; make sure it is not set here.
+    AuthType = None
+
     ;; Can overwrite the default in [Hypergrid], but probably shouldn't
     ; HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
 
@@ -660,6 +703,12 @@
 [HGAssetService]
     LocalServiceModule = "OpenSim.Services.HypergridService.dll:HGAssetService"
     UserAccountsService = "OpenSim.Services.UserAccountService.dll:UserAccountService"
+
+    ; HGAssetService is a public-facing service that allows users to  
+    ; read and create assets when on another grid.  This reuses the general asset service connector.
+    ; Hence, if the user has set up authentication in [Network] to protect their private services
+    ; make sure it is overriden for this public service.
+    AuthType = None
 
     ;; Can overwrite the default in [Hypergrid], but probably shouldn't
     ; HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
@@ -708,6 +757,9 @@
     ;; What is the HomeURI of users associated with this grid?
     ;; Can overwrite the default in [Hypergrid], but probably shouldn't
     ; HomeURI = "${Const|BaseURL}:${Const|PublicPort}"
+
+    ;; Sets the maximum number of groups an agent may join
+    ; MaxAgentGroups = 42
 
 
 [UserProfilesService]

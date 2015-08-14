@@ -73,3 +73,8 @@ ALTER TABLE xassetsmeta ALTER COLUMN hash SET DATA TYPE bytea USING hash::bytea;
 ALTER TABLE xassetsdata ALTER COLUMN hash SET DATA TYPE bytea USING hash::bytea;
 
 COMMIT;
+
+:VERSION 5
+
+BEGIN;
+COMMIT;

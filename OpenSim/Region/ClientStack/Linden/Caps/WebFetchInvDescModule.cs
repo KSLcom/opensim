@@ -197,15 +197,16 @@ namespace OpenSim.Region.ClientStack.Linden
             m_LibraryService = Scene.LibraryService;
 
             // We'll reuse the same handler for all requests.
-            m_webFetchHandler = new FetchInvDescHandler(m_InventoryService, m_LibraryService);
+            m_webFetchHandler = new FetchInvDescHandler(m_InventoryService, m_LibraryService, Scene);
 
             Scene.EventManager.OnRegisterCaps += RegisterCaps;
 
+            int nworkers = 2; // was 2
             if (ProcessQueuedRequestsAsync && m_workerThreads == null)
             {
-                m_workerThreads = new Thread[2];
+                m_workerThreads = new Thread[nworkers];
 
-                for (uint i = 0; i < 2; i++)
+                for (uint i = 0; i < nworkers; i++)
                 {
                     m_workerThreads[i] = WorkManager.StartThread(DoInventoryRequests,
                             String.Format("InventoryWorkerThread{0}", i),
@@ -266,11 +267,6 @@ namespace OpenSim.Region.ClientStack.Linden
                 Request = (x, y) =>
                 {
                     ScenePresence sp = m_module.Scene.GetScenePresence(Id);
-                    if (sp == null)
-                    {
-                        m_log.ErrorFormat("[INVENTORY]: Unable to find ScenePresence for {0}", Id);
-                        return;
-                    }
 
                     aPollRequest reqinfo = new aPollRequest();
                     reqinfo.thepoll = this;
@@ -364,7 +360,11 @@ namespace OpenSim.Region.ClientStack.Linden
                         requestinfo.request["body"].ToString(), String.Empty, String.Empty, null, null);
 
                 lock (responses)
+                {
+                    if (responses.ContainsKey(requestID))
+                        m_log.WarnFormat("[FETCH INVENTORY DESCENDENTS2 MODULE]: Caught in the act of loosing responses! Please report this on mantis #7054");
                     responses[requestID] = response;
+                }
 
                 WebFetchInvDescModule.ProcessedRequestsCount++;
             }

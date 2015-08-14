@@ -37,6 +37,7 @@ using OpenMetaverse;
 using OpenMetaverse.Packets;
 using log4net;
 using OpenSim.Framework;
+using OpenSim.Framework.Serialization.External;
 using OpenSim.Region.Framework;
 using OpenSim.Framework.Client;
 using OpenSim.Region.Framework.Interfaces;
@@ -49,7 +50,7 @@ namespace OpenSim.Region.Framework.Scenes
     public partial class Scene
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-        private static readonly string LogHeader = "[SCENE INVENTORY]";
+        //private static readonly string LogHeader = "[SCENE INVENTORY]";
 
         /// <summary>
         /// Allows asynchronous derezzing of objects from the scene into a client's inventory.
@@ -155,7 +156,9 @@ namespace OpenSim.Region.Framework.Scenes
 
             // OK so either the viewer didn't send a folderID or AddItem failed
             UUID originalFolder = item.Folder;
-            InventoryFolderBase f = InventoryService.GetFolderForType(item.Owner, (AssetType)item.AssetType);
+            InventoryFolderBase f = null;
+            if (Enum.IsDefined(typeof(FolderType), (sbyte)item.AssetType))
+                f = InventoryService.GetFolderForType(item.Owner, (FolderType)item.AssetType);
             if (f != null)
             {
                 m_log.DebugFormat(
@@ -742,7 +745,9 @@ namespace OpenSim.Region.Framework.Scenes
             
             if (itemCopy.Folder == UUID.Zero)
             {
-                InventoryFolderBase folder = InventoryService.GetFolderForType(recipient, (AssetType)itemCopy.AssetType);
+                InventoryFolderBase folder = null;
+                if (Enum.IsDefined(typeof(FolderType), (sbyte)item.AssetType))
+                    folder = InventoryService.GetFolderForType(recipient, (FolderType)itemCopy.AssetType);
 
                 if (folder != null)
                 {
@@ -807,7 +812,7 @@ namespace OpenSim.Region.Framework.Scenes
             UUID recipientId, UUID senderId, UUID folderId, UUID recipientParentFolderId)
         {
             //// Retrieve the folder from the sender
-            InventoryFolderBase folder = InventoryService.GetFolder(new InventoryFolderBase(folderId));
+            InventoryFolderBase folder = InventoryService.GetFolder(new InventoryFolderBase(folderId, senderId));
             if (null == folder)
             {
                 m_log.ErrorFormat(
@@ -1154,7 +1159,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (item == null)
                     return;
 
-                InventoryFolderBase destFolder = InventoryService.GetFolderForType(remoteClient.AgentId, AssetType.TrashFolder);
+                InventoryFolderBase destFolder = InventoryService.GetFolderForType(remoteClient.AgentId, FolderType.Trash);
 
                 // Move the item to trash. If this is a copyable item, only
                 // a copy will be moved and we will still need to delete
@@ -2222,8 +2227,10 @@ namespace OpenSim.Region.Framework.Scenes
         {
             objlist = new List<SceneObjectGroup>();
             veclist = new List<Vector3>();
+            bbox = Vector3.Zero;
+            offsetHeight = 0;
 
-            string xmlData = Utils.BytesToString(assetData);
+            string xmlData = ExternalRepresentationUtils.SanitizeXml(Utils.BytesToString(assetData));
 
             try
             {
@@ -2236,10 +2243,25 @@ namespace OpenSim.Region.Framework.Scenes
 
                         if (isSingleObject || isAttachment)
                         {
-                            SceneObjectGroup g = SceneObjectSerializer.FromOriginalXmlFormat(reader);
-                            objlist.Add(g);
-                            veclist.Add(Vector3.Zero);
-                            bbox = g.GetAxisAlignedBoundingBox(out offsetHeight);
+                            SceneObjectGroup g;
+                            try
+                            {
+                                g = SceneObjectSerializer.FromOriginalXmlFormat(reader);
+                            }
+                            catch (Exception e)
+                            {
+                                m_log.Error("[AGENT INVENTORY]: Deserialization of xml failed ", e);
+                                Util.LogFailedXML("[AGENT INVENTORY]:", xmlData);
+                                g = null;
+                            }
+                            
+                            if (g != null)
+                            {
+                                objlist.Add(g);
+                                veclist.Add(Vector3.Zero);
+                                bbox = g.GetAxisAlignedBoundingBox(out offsetHeight);
+                            }
+
                             return true;
                         }
                         else
@@ -2258,17 +2280,20 @@ namespace OpenSim.Region.Framework.Scenes
                             foreach (XmlNode n in groups)
                             {
                                 SceneObjectGroup g = SceneObjectSerializer.FromOriginalXmlFormat(n.OuterXml);
-                                objlist.Add(g);
+                                if (g != null)
+                                {
+                                    objlist.Add(g);
 
-                                XmlElement el = (XmlElement)n;
-                                string rawX = el.GetAttribute("offsetx");
-                                string rawY = el.GetAttribute("offsety");
-                                string rawZ = el.GetAttribute("offsetz");
+                                    XmlElement el = (XmlElement)n;
+                                    string rawX = el.GetAttribute("offsetx");
+                                    string rawY = el.GetAttribute("offsety");
+                                    string rawZ = el.GetAttribute("offsetz");
 
-                                float x = Convert.ToSingle(rawX);
-                                float y = Convert.ToSingle(rawY);
-                                float z = Convert.ToSingle(rawZ);
-                                veclist.Add(new Vector3(x, y, z));
+                                    float x = Convert.ToSingle(rawX);
+                                    float y = Convert.ToSingle(rawY);
+                                    float z = Convert.ToSingle(rawZ);
+                                    veclist.Add(new Vector3(x, y, z));
+                                }
                             }
 
                             return false;
@@ -2278,12 +2303,8 @@ namespace OpenSim.Region.Framework.Scenes
             }
             catch (Exception e)
             {
-                m_log.Error(
-                    "[AGENT INVENTORY]: Deserialization of xml failed when looking for CoalescedObject tag.  Exception ", 
-                    e);
-
-                bbox = Vector3.Zero;
-                offsetHeight = 0;
+                m_log.Error("[AGENT INVENTORY]: Deserialization of xml failed when looking for CoalescedObject tag ", e);
+                Util.LogFailedXML("[AGENT INVENTORY]:", xmlData);
             }
 
             return true;

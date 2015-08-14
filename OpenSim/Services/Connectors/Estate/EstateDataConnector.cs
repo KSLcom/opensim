@@ -40,7 +40,7 @@ using OpenSim.Services.Connectors;
 using OpenSim.Services.Interfaces;
 using OpenSim.Server.Base;
 
-namespace OpenSim.Service.Connectors
+namespace OpenSim.Services.Connectors
 {
     public class EstateDataRemoteConnector : BaseServiceConnector, IEstateDataService
     {
@@ -248,7 +248,6 @@ namespace OpenSim.Service.Connectors
 
         public void StoreEstateSettings(EstateSettings es)
         {
-            string reply = string.Empty;
             // /estates/estate/
             string uri = m_ServerURI + ("/estates/estate");
 
@@ -260,7 +259,6 @@ namespace OpenSim.Service.Connectors
 
         public bool LinkRegion(UUID regionID, int estateID)
         {
-            string reply = string.Empty;
             // /estates/estate/?eid=int&region=uuid
             string uri = m_ServerURI + String.Format("/estates/estate/?eid={0}&region={1}", estateID, regionID);
 

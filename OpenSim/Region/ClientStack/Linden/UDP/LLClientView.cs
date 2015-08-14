@@ -1866,8 +1866,8 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             newBlock.Name = Util.StringToBytes256(folder.Name);
             newBlock.ParentID = folder.ParentID;
             newBlock.Type = (sbyte)folder.Type;
-            if (newBlock.Type == InventoryItemBase.SUITCASE_FOLDER_TYPE)
-                newBlock.Type = InventoryItemBase.SUITCASE_FOLDER_FAKE_TYPE;
+            //if (newBlock.Type == InventoryItemBase.SUITCASE_FOLDER_TYPE)
+            //    newBlock.Type = InventoryItemBase.SUITCASE_FOLDER_FAKE_TYPE;
 
             return newBlock;
         }
@@ -2118,8 +2118,9 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             folderBlock.FolderID = folder.ID;
             folderBlock.ParentID = folder.ParentID;
             folderBlock.Type = (sbyte)folder.Type;
-            if (folderBlock.Type == InventoryItemBase.SUITCASE_FOLDER_TYPE)
-                folderBlock.Type = InventoryItemBase.SUITCASE_FOLDER_FAKE_TYPE;
+            // Leaving this here for now, just in case we need to do this for a while
+            //if (folderBlock.Type == InventoryItemBase.SUITCASE_FOLDER_TYPE)
+            //    folderBlock.Type = InventoryItemBase.SUITCASE_FOLDER_FAKE_TYPE;
             folderBlock.Name = Util.StringToBytes256(folder.Name);
 
             return folderBlock;
@@ -3747,6 +3748,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             avp.Sender.IsTrial = false;
             avp.Sender.ID = agentID;
             avp.AppearanceData = new AvatarAppearancePacket.AppearanceDataBlock[0];
+            avp.AppearanceHover = new AvatarAppearancePacket.AppearanceHoverBlock[0];
             //m_log.DebugFormat("[CLIENT]: Sending appearance for {0} to {1}", agentID.ToString(), AgentId.ToString());
             OutPacket(avp, ThrottleOutPacketType.Task);
         }
@@ -4465,7 +4467,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         {
             uint priority = 0;  // time based ordering only
             lock (m_entityProps.SyncRoot)
-                m_entityProps.Enqueue(priority, new ObjectPropertyUpdate(entity,requestFlags,true,false));
+                m_entityProps.Enqueue(priority, new ObjectPropertyUpdate(entity,requestFlags,true,true));
         }
 
         private void ResendPropertyUpdate(ObjectPropertyUpdate update)
@@ -9901,6 +9903,20 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         {
                             handlerEstateManageTelehub(this, invoice, SenderID, command, param1);
                         }
+                    }
+                    return true;
+
+                case "kickestate":
+                   
+                    if(((Scene)m_scene).Permissions.CanIssueEstateCommand(AgentId, false))
+                    {
+                        UUID invoice = messagePacket.MethodData.Invoice;
+                        UUID SenderID = messagePacket.AgentData.AgentID;
+                        UUID Prey;
+
+                        UUID.TryParse(Utils.BytesToString(messagePacket.ParamList[0].Parameter), out Prey);
+
+                        OnEstateTeleportOneUserHomeRequest(this, invoice, SenderID, Prey);
                     }
                     return true;
 

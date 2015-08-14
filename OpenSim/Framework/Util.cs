@@ -805,16 +805,6 @@ namespace OpenSim.Framework
         }
 
         /// <summary>
-        /// Converts a URL to a IPAddress
-        /// </summary>
-        /// <param name="url">URL Standard Format</param>
-        /// <returns>A resolved IP Address</returns>
-        public static IPAddress GetHostFromURL(string url)
-        {
-            return GetHostFromDNS(url.Split(new char[] {'/', ':'})[3]);
-        }
-
-        /// <summary>
         /// Returns a IP address from a specified DNS, favouring IPv4 addresses.
         /// </summary>
         /// <param name="dnsAddress">DNS Hostname</param>
@@ -1802,32 +1792,6 @@ namespace OpenSim.Framework
             return found.ToArray();
         }
 
-        public static string ServerURI(string uri)
-        {
-            if (uri == string.Empty)
-                return string.Empty;
-
-            // Get rid of eventual slashes at the end
-            uri = uri.TrimEnd('/');
-
-            IPAddress ipaddr1 = null;
-            string port1 = "";
-            try
-            {
-                ipaddr1 = Util.GetHostFromURL(uri);
-            }
-            catch { }
-
-            try
-            {
-                port1 = uri.Split(new char[] { ':' })[2];
-            }
-            catch { }
-
-            // We tried our best to convert the domain names to IP addresses
-            return (ipaddr1 != null) ? "http://" + ipaddr1.ToString() + ":" + port1 : uri;
-        }
-
         /// <summary>
         /// Convert a string to a byte format suitable for transport in an LLUDP packet.  The output is truncated to 256 bytes if necessary.
         /// </summary>
@@ -2780,7 +2744,9 @@ namespace OpenSim.Framework
         #endregion
 
         #region Universal User Identifiers
-       /// <summary>
+
+        /// <summary>
+        /// Attempts to parse a UUI into its components: UUID, name and URL.
         /// </summary>
         /// <param name="value">uuid[;endpoint[;first last[;secret]]]</param>
         /// <param name="uuid">the uuid part</param>
@@ -2811,6 +2777,27 @@ namespace OpenSim.Framework
             }
             if (parts.Length >= 4)
                 secret = parts[3];
+
+            return true;
+        }
+
+        /// <summary>
+        /// For foreign avatars, extracts their original name and Server URL from their First Name and Last Name.
+        /// </summary>
+        public static bool ParseForeignAvatarName(string firstname, string lastname,
+            out string realFirstName, out string realLastName, out string serverURI)
+        {
+            realFirstName = realLastName = serverURI = string.Empty;
+
+            if (!lastname.Contains("@"))
+                return false;
+
+            if (!firstname.Contains("."))
+                return false;
+
+            realFirstName = firstname.Split('.')[0];
+            realLastName = firstname.Split('.')[1];
+            serverURI = new Uri("http://" + lastname.Replace("@", "")).ToString();
 
             return true;
         }
@@ -2923,6 +2910,16 @@ namespace OpenSim.Framework
 
             return name;
         }
+
+        public static void LogFailedXML(string message, string xml)
+        {
+            int length = xml.Length;
+            if (length > 2000)
+                xml = xml.Substring(0, 2000) + "...";
+
+            m_log.ErrorFormat("{0} Failed XML ({1} bytes) = {2}", message, length, xml);
+        }
+
     }
 
     public class DoubleQueue<T> where T:class
@@ -3034,6 +3031,57 @@ namespace OpenSim.Framework
                 m_lowQueue.Clear();
                 m_highQueue.Clear();
             }
+        }
+    }
+
+    public class BetterRandom
+    {
+        private const int BufferSize = 1024;  // must be a multiple of 4
+        private byte[] RandomBuffer;
+        private int BufferOffset;
+        private RNGCryptoServiceProvider rng;
+        public BetterRandom()
+        {
+            RandomBuffer = new byte[BufferSize];
+            rng = new RNGCryptoServiceProvider();
+            BufferOffset = RandomBuffer.Length;
+        }
+        private void FillBuffer()
+        {
+            rng.GetBytes(RandomBuffer);
+            BufferOffset = 0;
+        }
+        public int Next()
+        {
+            if (BufferOffset >= RandomBuffer.Length)
+            {
+                FillBuffer();
+            }
+            int val = BitConverter.ToInt32(RandomBuffer, BufferOffset) & 0x7fffffff;
+            BufferOffset += sizeof(int);
+            return val;
+        }
+        public int Next(int maxValue)
+        {
+            return Next() % maxValue;
+        }
+        public int Next(int minValue, int maxValue)
+        {
+            if (maxValue < minValue)
+            {
+                throw new ArgumentOutOfRangeException("maxValue must be greater than or equal to minValue");
+            }
+            int range = maxValue - minValue;
+            return minValue + Next(range);
+        }
+        public double NextDouble()
+        {
+            int val = Next();
+            return (double)val / int.MaxValue;
+        }
+        public void GetBytes(byte[] buff)
+        {
+            rng.GetBytes(buff);
         }
     }
 }

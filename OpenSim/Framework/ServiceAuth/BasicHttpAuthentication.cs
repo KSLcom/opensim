@@ -28,6 +28,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Net;
 using System.Reflection;
 
 using Nini.Config;
@@ -37,7 +38,9 @@ namespace OpenSim.Framework.ServiceAuth
 {
     public class BasicHttpAuthentication : IServiceAuth
     {
-        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+//        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+
+        public string Name { get { return "BasicHttp"; } }
 
         private string m_Username, m_Password;
         private string m_CredentialsB64;
@@ -58,7 +61,7 @@ namespace OpenSim.Framework.ServiceAuth
             byte[] encData_byte = Util.UTF8.GetBytes(str);
 
             m_CredentialsB64 = Convert.ToBase64String(encData_byte);
-            m_log.DebugFormat("[HTTP BASIC AUTH]: {0} {1} [{2}]", m_Username, m_Password, section);
+//            m_log.DebugFormat("[HTTP BASIC AUTH]: {0} {1} [{2}]", m_Username, m_Password, section);
         }
 
         public void AddAuthorization(NameValueCollection headers)
@@ -82,24 +85,28 @@ namespace OpenSim.Framework.ServiceAuth
             return false;
         }
 
-        public bool Authenticate(NameValueCollection requestHeaders, AddHeaderDelegate d)
+        public bool Authenticate(NameValueCollection requestHeaders, AddHeaderDelegate d, out HttpStatusCode statusCode)
         {
-            //m_log.DebugFormat("[HTTP BASIC AUTH]: Authenticate in {0}", remove_me);
-            if (requestHeaders != null)
+//            m_log.DebugFormat("[HTTP BASIC AUTH]: Authenticate in {0}", "BasicHttpAuthentication");
+
+            string value = requestHeaders.Get("Authorization");
+            if (value != null)
             {
-                string value = requestHeaders.Get("Authorization");
-                if (value != null)
+                value = value.Trim();
+                if (value.StartsWith("Basic "))
                 {
-                    value = value.Trim();
-                    if (value.StartsWith("Basic "))
+                    value = value.Replace("Basic ", string.Empty);
+                    if (Authenticate(value))
                     {
-                        value = value.Replace("Basic ", string.Empty);
-                        if (Authenticate(value))
-                            return true;
+                        statusCode = HttpStatusCode.OK;
+                        return true;
                     }
                 }
             }
+
             d("WWW-Authenticate", "Basic realm = \"Asset Server\"");
+
+            statusCode = HttpStatusCode.Unauthorized;
             return false;
         }
     }

@@ -460,7 +460,7 @@ namespace OpenSim.Region.ScriptEngine.XEngine
         /// <param name="args"></param>
         private void HandleDebugLevelCommand(string module, string[] args)
         {
-            if (args.Length <= 4)
+            if (args.Length >= 4)
             {
                 int newDebug;
                 if (ConsoleUtil.TryParseConsoleNaturalInt(MainConsole.Instance, args[3], out newDebug))
@@ -699,6 +699,8 @@ namespace OpenSim.Region.ScriptEngine.XEngine
         {
             if (instance.Running)
             {
+                instance.StayStopped = true;    // the script was stopped explicitly
+
                 instance.Stop(0);
 
                 SceneObjectPart sop = m_Scene.GetSceneObjectPart(instance.ObjectID);
@@ -1872,6 +1874,12 @@ namespace OpenSim.Region.ScriptEngine.XEngine
             IScriptInstance instance = GetInstance(itemID);
             if (instance != null)
                 instance.ApiResetScript();
+
+            // Send the new number of threads that are in use by the thread
+            // pool, I believe that by adding them to the locations where the
+            // script is changing states that I will catch all changes to the
+            // thread pool
+            m_Scene.setThreadCount(m_ThreadPool.InUseThreads);
         }
 
         public void ResetScript(UUID itemID)
@@ -1879,6 +1887,12 @@ namespace OpenSim.Region.ScriptEngine.XEngine
             IScriptInstance instance = GetInstance(itemID);
             if (instance != null)
                 instance.ResetScript(m_WaitForEventCompletionOnScriptStop);
+
+            // Send the new number of threads that are in use by the thread
+            // pool, I believe that by adding them to the locations where the
+            // script is changing states that I will catch all changes to the
+            // thread pool
+            m_Scene.setThreadCount(m_ThreadPool.InUseThreads);
         }
 
         public void StartScript(UUID itemID)
@@ -1888,6 +1902,12 @@ namespace OpenSim.Region.ScriptEngine.XEngine
                 instance.Start();
             else
                 m_runFlags.AddOrUpdate(itemID, true, 240);
+
+            // Send the new number of threads that are in use by the thread
+            // pool, I believe that by adding them to the locations where the
+            // script is changing states that I will catch all changes to the
+            // thread pool
+            m_Scene.setThreadCount(m_ThreadPool.InUseThreads);
         }
 
         public void StopScript(UUID itemID)
@@ -1896,6 +1916,9 @@ namespace OpenSim.Region.ScriptEngine.XEngine
 
             if (instance != null)
             {
+                lock (instance.EventQueue)
+                    instance.StayStopped = true;    // the script was stopped explicitly
+
                 instance.Stop(m_WaitForEventCompletionOnScriptStop);
             }
             else
@@ -1903,6 +1926,12 @@ namespace OpenSim.Region.ScriptEngine.XEngine
 //                m_log.DebugFormat("[XENGINE]: Could not find script with ID {0} to stop in {1}", itemID, World.Name);
                 m_runFlags.AddOrUpdate(itemID, false, 240);
             }
+
+            // Send the new number of threads that are in use by the thread
+            // pool, I believe that by adding them to the locations where the
+            // script is changing states that I will catch all changes to the
+            // thread pool
+            m_Scene.setThreadCount(m_ThreadPool.InUseThreads);
         }
 
         public DetectParams GetDetectParams(UUID itemID, int idx)
@@ -2319,7 +2348,6 @@ namespace OpenSim.Region.ScriptEngine.XEngine
 
         public Dictionary<uint, float> GetObjectScriptsExecutionTimes()
         {
-            long tickNow = Util.EnvironmentTickCount();
             Dictionary<uint, float> topScripts = new Dictionary<uint, float>();
 
             lock (m_Scripts)
@@ -2329,7 +2357,7 @@ namespace OpenSim.Region.ScriptEngine.XEngine
                     if (!topScripts.ContainsKey(si.LocalID))
                         topScripts[si.RootLocalID] = 0;
 
-                    topScripts[si.RootLocalID] += CalculateAdjustedExectionTime(si, tickNow);
+                    topScripts[si.RootLocalID] += GetExectionTime(si);
                 }
             }
 
@@ -2343,7 +2371,6 @@ namespace OpenSim.Region.ScriptEngine.XEngine
                 return 0.0f;
             }
             float time = 0.0f;
-            long tickNow = Util.EnvironmentTickCount();
             IScriptInstance si;
             // Calculate the time for all scripts that this engine is executing
             // Ignore any others
@@ -2352,36 +2379,15 @@ namespace OpenSim.Region.ScriptEngine.XEngine
                 si = GetInstance(id);
                 if (si != null && si.Running)
                 {
-                    time += CalculateAdjustedExectionTime(si, tickNow);
+                    time += GetExectionTime(si);
                 }
             }
             return time;
         }
 
-        private float CalculateAdjustedExectionTime(IScriptInstance si, long tickNow)
+        private float GetExectionTime(IScriptInstance si)
         {
-            long ticksElapsed = tickNow - si.MeasurementPeriodTickStart;
-
-            // Avoid divide by zero
-            if (ticksElapsed == 0)
-                ticksElapsed = 1;
-
-            // Scale execution time to the ideal 55 fps frame time for these reasons.
-            //
-            // 1) XEngine does not execute scripts per frame, unlike other script engines.  Hence, there is no
-            // 'script execution time per frame', which is the original purpose of this value.
-            //
-            // 2) Giving the raw execution times is misleading since scripts start at different times, making
-            // it impossible to compare scripts.
-            //
-            // 3) Scaling the raw execution time to the time that the script has been running is better but
-            // is still misleading since a script that has just been rezzed may appear to have been running
-            // for much longer.
-            //
-            // 4) Hence, we scale execution time to an idealised frame time (55 fps).  This is also not perfect
-            // since the figure does not represent actual execution time and very hard running scripts will
-            // never exceed 18ms (though this is a very high number for script execution so is a warning sign).
-            return ((float)si.MeasurementPeriodExecutionTime / ticksElapsed) * 18.1818f;
+            return (float)si.ExecutionTime.GetSumTime().TotalMilliseconds;
         }
 
         public void SuspendScript(UUID itemID)
@@ -2393,6 +2399,12 @@ namespace OpenSim.Region.ScriptEngine.XEngine
                 instance.Suspend();
 //            else
 //                m_log.DebugFormat("[XEngine]: Could not find script with ID {0} to resume", itemID);
+
+            // Send the new number of threads that are in use by the thread
+            // pool, I believe that by adding them to the locations where the
+            // script is changing states that I will catch all changes to the
+            // thread pool
+            m_Scene.setThreadCount(m_ThreadPool.InUseThreads);
         }
 
         public void ResumeScript(UUID itemID)
@@ -2404,6 +2416,12 @@ namespace OpenSim.Region.ScriptEngine.XEngine
                 instance.Resume();
 //            else
 //                m_log.DebugFormat("[XEngine]: Could not find script with ID {0} to resume", itemID);
+
+            // Send the new number of threads that are in use by the thread
+            // pool, I believe that by adding them to the locations where the
+            // script is changing states that I will catch all changes to the
+            // thread pool
+            m_Scene.setThreadCount(m_ThreadPool.InUseThreads);
         }
 
         public bool HasScript(UUID itemID, out bool running)

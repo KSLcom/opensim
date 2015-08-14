@@ -596,6 +596,10 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public const int OBJECT_PHYSICS = 21;
         public const int OBJECT_PHANTOM = 22;
         public const int OBJECT_TEMP_ON_REZ = 23;
+        public const int OBJECT_RENDER_WEIGHT = 24;
+        public const int OBJECT_HOVER_HEIGHT = 25;
+        public const int OBJECT_BODY_SHAPE_TYPE = 26;
+        public const int OBJECT_LAST_OWNER_ID = 27;
 
         // Pathfinding types
         public const int OPT_OTHER = -1;
@@ -776,7 +780,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
 
         public static readonly LSLInteger RCERR_UNKNOWN = -1;
         public static readonly LSLInteger RCERR_SIM_PERF_LOW = -2;
-        public static readonly LSLInteger RCERR_CAST_TIME_EXCEEDED = 3;
+        public static readonly LSLInteger RCERR_CAST_TIME_EXCEEDED = -3;
 
         public const int KFM_MODE = 1;
         public const int KFM_LOOP = 1;
