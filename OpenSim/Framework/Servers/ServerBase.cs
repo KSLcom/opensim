@@ -871,9 +871,10 @@ namespace OpenSim.Framework.Servers
             }
         }
 
-        protected string GetVersionText()
+        public string GetVersionText()
         {
-            return String.Format("Version: {0} (interface version {1})", m_version, VersionInfo.MajorInterfaceVersion);
+            return String.Format("Version: {0} (SIMULATION/{1} - SIMULATION/{2})", 
+                m_version, VersionInfo.SimulationServiceVersionSupportedMin, VersionInfo.SimulationServiceVersionSupportedMax);
         }
 
         /// <summary>

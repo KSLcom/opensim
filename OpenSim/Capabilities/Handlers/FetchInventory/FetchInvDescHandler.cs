@@ -416,7 +416,7 @@ namespace OpenSim.Capabilities.Handlers
 
                     version = containingFolder.Version;
 
-                    if (fetchItems)
+                    if (fetchItems && containingFolder.Type != (short)FolderType.Trash)
                     {
                         List<InventoryItemBase> itemsToReturn = contents.Items;
                         List<InventoryItemBase> originalItems = new List<InventoryItemBase>(itemsToReturn);
@@ -441,6 +441,10 @@ namespace OpenSim.Capabilities.Handlers
                         }
 
                         // Now scan for folder links and insert the items they target and those links at the head of the return data
+
+/* dont send contents of LinkFolders.
+from docs seems this was never a spec
+
                         foreach (InventoryItemBase item in originalItems)
                         {
                             if (item.AssetType == (int)AssetType.LinkFolder)
@@ -471,6 +475,7 @@ namespace OpenSim.Capabilities.Handlers
                                 }
                             }
                         }
+*/
                     }
 
 //                    foreach (InventoryItemBase item in contents.Items)
@@ -723,8 +728,8 @@ namespace OpenSim.Capabilities.Handlers
                     if (item.AssetType == (int)AssetType.Link)
                         itemIDs.Add(item.AssetID);
 
-                    else if (item.AssetType == (int)AssetType.LinkFolder)
-                        folderIDs.Add(item.AssetID);
+//                    else if (item.AssetType == (int)AssetType.LinkFolder)
+//                        folderIDs.Add(item.AssetID);
                 }
 
                 //m_log.DebugFormat("[XXX]: folder {0} has {1} links and {2} linkfolders", contents.FolderID, itemIDs.Count, folderIDs.Count);

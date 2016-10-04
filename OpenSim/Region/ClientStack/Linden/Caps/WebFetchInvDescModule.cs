@@ -34,9 +34,7 @@ using log4net;
 using Nini.Config;
 using Mono.Addins;
 using OpenMetaverse;
-using OpenMetaverse.StructuredData;
 using OpenSim.Framework;
-using OpenSim.Framework.Monitoring;
 using OpenSim.Framework.Servers;
 using OpenSim.Framework.Servers.HttpServer;
 using OpenSim.Region.Framework.Interfaces;
@@ -45,6 +43,9 @@ using OpenSim.Framework.Capabilities;
 using OpenSim.Services.Interfaces;
 using Caps = OpenSim.Framework.Capabilities.Caps;
 using OpenSim.Capabilities.Handlers;
+using OpenSim.Framework.Monitoring;
+
+using OpenMetaverse.StructuredData;
 
 namespace OpenSim.Region.ClientStack.Linden
 {
@@ -63,7 +64,7 @@ namespace OpenSim.Region.ClientStack.Linden
             public List<UUID> folders;
         }
 
-         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         /// <summary>
         /// Control whether requests will be processed asynchronously.
@@ -92,7 +93,7 @@ namespace OpenSim.Region.ClientStack.Linden
         private bool m_Enabled;
 
         private string m_fetchInventoryDescendents2Url;
-        private string m_webFetchInventoryDescendentsUrl;
+//        private string m_webFetchInventoryDescendentsUrl;
 
         private static FetchInvDescHandler m_webFetchHandler;
 
@@ -117,9 +118,10 @@ namespace OpenSim.Region.ClientStack.Linden
                 return;
 
             m_fetchInventoryDescendents2Url = config.GetString("Cap_FetchInventoryDescendents2", string.Empty);
-            m_webFetchInventoryDescendentsUrl = config.GetString("Cap_WebFetchInventoryDescendents", string.Empty);
+//            m_webFetchInventoryDescendentsUrl = config.GetString("Cap_WebFetchInventoryDescendents", string.Empty);
 
-            if (m_fetchInventoryDescendents2Url != string.Empty || m_webFetchInventoryDescendentsUrl != string.Empty)
+//            if (m_fetchInventoryDescendents2Url != string.Empty || m_webFetchInventoryDescendentsUrl != string.Empty)
+            if (m_fetchInventoryDescendents2Url != string.Empty)
             {
                 m_Enabled = true;
             }
@@ -312,7 +314,8 @@ namespace OpenSim.Region.ClientStack.Linden
                         {
                             if (!reqinfo.folders.Contains(folderID))
                             {
-                                //TODO: Port COF handling from Avination
+                                if (sp.COF != UUID.Zero && sp.COF == folderID)
+                                    highPriority = true;
                                 reqinfo.folders.Add(folderID);
                             }
                         }

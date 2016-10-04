@@ -32,7 +32,7 @@ using System.IO;
 using System.Reflection;
 using Nini.Config;
 using OpenSim.Framework;
-using OpenSim.Framework.Communications;
+
 using OpenSim.Framework.ServiceAuth;
 using OpenSim.Server.Base;
 using OpenSim.Services.Interfaces;
@@ -193,6 +193,11 @@ namespace OpenSim.Services.Connectors
 
         public void InvalidateCache(UUID userID)
         {
+        }
+
+        public List<UserAccount> GetUserAccountsWhere(UUID scopeID, string where)
+        {
+            return null; // Not implemented for regions
         }
 
         public virtual bool StoreUserAccount(UserAccount data)

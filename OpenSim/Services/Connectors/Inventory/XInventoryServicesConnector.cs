@@ -33,7 +33,7 @@ using System.Reflection;
 using Nini.Config;
 using OpenSim.Framework;
 using OpenSim.Framework.Console;
-using OpenSim.Framework.Communications;
+
 using OpenSim.Framework.Monitoring;
 using OpenSim.Services.Interfaces;
 using OpenSim.Server.Base;
@@ -474,7 +474,13 @@ namespace OpenSim.Services.Connectors
                         { "CreationDate", item.CreationDate.ToString() }
                     });
 
-            return CheckReturn(ret);
+            bool result = CheckReturn(ret);
+            if (result)
+            {
+                m_ItemCache.AddOrUpdate(item.ID, item, CACHE_EXPIRATION_SECONDS);
+            }
+
+            return result;
         }
 
         public bool MoveItems(UUID principalID, List<InventoryItemBase> items)
@@ -518,7 +524,9 @@ namespace OpenSim.Services.Connectors
         {
             InventoryItemBase retrieved = null;
             if (m_ItemCache.TryGetValue(item.ID, out retrieved))
+            {
                 return retrieved;
+            }
 
             try
             {
@@ -551,6 +559,7 @@ namespace OpenSim.Services.Connectors
             List<UUID> pending = new List<UUID>();
             InventoryItemBase item = null;
             int i = 0;
+
             foreach (UUID id in itemIDs)
             {
                 if (m_ItemCache.TryGetValue(id, out item))
